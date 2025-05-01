@@ -18,6 +18,25 @@ def home():
 def authorize():
     return redirect(authorize_user())
 
+# @app.route('/callback')
+# def callback():
+#     error = request.args.get('error')
+#     if error:
+#         return jsonify({"error": error})
+
+#     auth_code = request.args.get('code')
+#     if not auth_code:
+#         return jsonify({"error": "Authorization code not found."})
+
+#     try:
+#         tokens = get_token(auth_code)
+#         access_token = tokens['access_token']
+
+#         return redirect(f"http://localhost:3000?token={access_token}")
+
+#     except Exception as e:
+#         return jsonify({"error": str(e)})
+
 @app.route('/callback')
 def callback():
     error = request.args.get('error')
@@ -34,6 +53,8 @@ def callback():
         return jsonify({"message": "Token received", "access_token": access_token})
     except Exception as e:
         return jsonify({"error": str(e)})
+
+
 
 @app.route('/api/data/<data_type>')
 def get_data(data_type):
