@@ -1,76 +1,109 @@
-from flask import Flask, redirect, request, session, jsonify, url_for
+from fastapi import FastAPI, HTTPException, Depends, Request, Header
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse, JSONResponse
+from typing import Optional
+from datetime import datetime, timedelta
 from config import Config
-from utils.auth import authorize_user, get_token
+import httpx
+from utils.auth import authorize_user
 from utils.data import fetch_fitbit_data
-from flask_cors import CORS
 
-app = Flask(__name__)
-app.secret_key = Config.SECRET_KEY
-app.config.from_object(Config)
+app = FastAPI(title="Fitbit API Backend")
 
-CORS(app)
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.route('/')
-def home():
-    return jsonify({"message": "Fitbit API Backend. Use /authorize to begin."})
+@app.get("/")
+async def home():
+    return {"message": "Fitbit API Backend. Use /authorize to begin."}
 
-@app.route('/authorize')
-def authorize():
-    return redirect(authorize_user())
+@app.get("/authorize")
+async def authorize():
+    """Redirect to Fitbit authorization page"""
+    auth_url = authorize_user()
+    return RedirectResponse(auth_url)
 
-# @app.route('/callback')
-# def callback():
-#     error = request.args.get('error')
-#     if error:
-#         return jsonify({"error": error})
+@app.get("/callback")
+async def callback(code: Optional[str] = None, error: Optional[str] = None):
+    """Handle OAuth callback from Fitbit"""
+    frontend_url = "http://localhost:3000"  # Use hardcoded value or Config.FRONTEND_URL
 
-#     auth_code = request.args.get('code')
-#     if not auth_code:
-#         return jsonify({"error": "Authorization code not found."})
-
-#     try:
-#         tokens = get_token(auth_code)
-#         access_token = tokens['access_token']
-
-#         return redirect(f"http://localhost:3000?token={access_token}")
-
-#     except Exception as e:
-#         return jsonify({"error": str(e)})
-
-@app.route('/callback')
-def callback():
-    error = request.args.get('error')
     if error:
-        return jsonify({"error": error})
+        return RedirectResponse(f"{frontend_url}/home?error={error}")
 
-    auth_code = request.args.get('code')
-    if not auth_code:
-        return jsonify({"error": "Authorization code not found."})
+    if not code:
+        return RedirectResponse(f"{frontend_url}/home?error=no_code")
 
     try:
-        tokens = get_token(auth_code)
+        from utils.auth import get_token
+        tokens = await get_token(code)
         access_token = tokens['access_token']
-        return jsonify({"message": "Token received", "access_token": access_token})
+        return RedirectResponse(f"{frontend_url}/home?token={access_token}&view=vital")
     except Exception as e:
-        return jsonify({"error": str(e)})
+        return RedirectResponse(f"{frontend_url}/home?error={str(e)}")
 
-
-
-@app.route('/api/data/<data_type>')
-def get_data(data_type):
-    access_token = request.headers.get('Authorization')
-    if not access_token:
-        return jsonify({"error": "Missing Authorization header"}), 401
+@app.get("/api/data/{data_type}")
+async def get_data(
+    data_type: str, 
+    period: str = "7d",  # (7d, 1d, 30d)
+    authorization: str = Header(None)
+):
+    """
+    API endpoint to fetch Fitbit data based on type and time period
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
     
-    if access_token.startswith("Bearer "):
-        access_token = access_token.replace("Bearer ", "")
+    if authorization.startswith("Bearer "):
+        access_token = authorization.replace("Bearer ", "")
+    else:
+        access_token = authorization
 
-    period = request.args.get('period', '7d')  # default 7 days
     try:
-        data = fetch_fitbit_data(access_token, data_type, period)
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({"error": str(e)})
+        period_mapping = {
+            "1d": "daily",
+            "7d": "weekly", 
+            "30d": "monthly"
+        }
+        backend_period = period_mapping.get(period, "weekly")
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+        type_mapping = {
+            "heart": "heart_rate",
+            "distance": "distance",
+            "steps": "steps",
+            "calories": "calories",
+            "activity_summary": "activity_summary"
+        }
+        backend_data_type = type_mapping.get(data_type, data_type)
+
+        data = await fetch_fitbit_data(access_token, backend_data_type, backend_period)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/data/activity_summary")
+async def get_activity_summary(authorization: str = Header(None)):  
+    """Get today's activity summary"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    
+    if authorization.startswith("Bearer "):
+        access_token = authorization.replace("Bearer ", "")
+    else:
+        access_token = authorization
+
+    try:
+        data = await fetch_fitbit_data(access_token, "activity_summary", "daily")
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
