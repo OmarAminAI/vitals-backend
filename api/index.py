@@ -2,16 +2,15 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from typing import Optional
-from utils.config import Config   # Note moved config import path
+from utils.config import Config
 from utils.auth import authorize_user, get_token
 from utils.data import fetch_fitbit_data
 
 app = FastAPI(title="Fitbit API Backend")
 
-# CORS for your deployed frontend!
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[Config.FRONTEND_URL],  # Make sure this matches your deployed frontend domain
+    allow_origins=[Config.FRONTEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -21,12 +20,12 @@ app.add_middleware(
 async def home():
     return {"message": "Fitbit API Backend. Use /authorize to begin."}
 
-@app.get("/authorize")
+@app.get("/api/authorize")
 async def authorize():
     auth_url = authorize_user()
     return RedirectResponse(auth_url)
 
-@app.get("/callback")
+@app.get("/api/callback")
 async def callback(code: Optional[str] = None, error: Optional[str] = None):
     frontend_url = Config.FRONTEND_URL
 

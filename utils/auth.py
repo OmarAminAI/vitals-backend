@@ -17,6 +17,7 @@ def authorize_user():
 
 async def get_token(code):
     import urllib.parse
+
     auth_header = base64.b64encode(f"{Config.CLIENT_ID}:{Config.CLIENT_SECRET}".encode()).decode()
     headers = {
         "Authorization": f"Basic {auth_header}",
