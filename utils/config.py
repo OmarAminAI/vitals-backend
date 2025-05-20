@@ -9,7 +9,7 @@ class Config:
     CLIENT_SECRET = os.environ.get("FITBIT_CLIENT_SECRET", "")
     # These should MATCH your actual deployed backend location!
     REDIRECT_URI = os.environ.get(
-        "REDIRECT_URI", "https://your-vercel-backend-url.vercel.app/api/callback"
+        "REDIRECT_URI", "https://vitals-backend.vercel.app/api/callback"  # "http://localhost:8000/api/callback"
     )
     FRONTEND_URL = os.environ.get(
         "FRONTEND_URL", "https://sekmed-front-579bclytf-omaraminais-projects.vercel.app"
