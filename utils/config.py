@@ -1,3 +1,4 @@
 # utils/config.py
-# This file is intentionally almost empty for testing.
-pass
+
+class Config:
+    FRONTEND_URL = "https://sekmed-front.vercel.app/"
