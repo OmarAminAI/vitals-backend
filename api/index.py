@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from typing import Optional
-#from utils.config import Config
+from utils.config import Config
 from utils.auth import authorize_user, get_token
 from utils.data import fetch_fitbit_data
 from mangum import Mangum # Make sure Mangum is imported
