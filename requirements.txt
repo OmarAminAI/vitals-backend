@@ -1,4 +1,2 @@
 fastapi
-httpx
 mangum
-python-dotenv
